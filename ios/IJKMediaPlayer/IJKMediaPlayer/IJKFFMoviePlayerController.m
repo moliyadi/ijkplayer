@@ -206,6 +206,74 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
     return self;
 }
 
+- (id)initWithOptions:(IJKFFOptions *)options withSegmentResolver:(id<IJKMediaSegmentResolver>)segmentResolver
+{
+    self = [super init];
+    if (self) {
+        ijkmp_global_init();
+        
+        // IJKFFIOStatRegister(IJKFFIOStatDebugCallback);
+        // IJKFFIOStatCompleteRegister(IJKFFIOStatCompleteDebugCallback);
+        
+        // init fields
+        _controlStyle = MPMovieControlStyleNone;
+        _scalingMode = MPMovieScalingModeAspectFit;
+        _shouldAutoplay = NO;
+        
+        // init media resource
+        //_ffMrl = [[IJKFFMrl alloc] initWithMrl:aUrlString]; //mabiao 使用setContentURL单独设置地址
+        _segmentResolver = segmentResolver;
+        _mediaMeta = [[NSDictionary alloc] init];
+        
+        // init player
+        _mediaPlayer = ijkmp_ios_create(media_player_msg_loop);
+        _msgPool = [[IJKFFMoviePlayerMessagePool alloc] init];
+        
+        ijkmp_set_weak_thiz(_mediaPlayer, (__bridge_retained void *) self);
+        ijkmp_set_format_callback(_mediaPlayer, format_control_message, (__bridge void *) self);
+        
+        // init video sink
+        //        int chroma = SDL_FCC_RV24;
+        int chroma = SDL_FCC_I420;
+        _glView = [[IJKSDLGLView alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
+        _view   = _glView;
+        
+        ijkmp_ios_set_glview(_mediaPlayer, _glView);
+        ijkmp_set_overlay_format(_mediaPlayer, chroma);
+        
+        // init audio sink
+        [[IJKAudioKit sharedInstance] setupAudioSession:self];
+#if 0 //Modified by mabiao
+        // apply ffmpeg options
+        [options applyTo:_mediaPlayer];
+        _pauseInBackground = options.pauseInBackground;
+#else
+//        IJKFFOptions *optionsTemp = [[IJKFFOptions alloc] init];
+//        [optionsTemp applyToForWaitShot:_mediaPlayer];
+        
+        ijkmp_set_format_option(_mediaPlayer, [@"analyzeduration" UTF8String], [@"2000000" UTF8String]); //缩短加载等待时间
+        //ijkmp_set_format_option(_mediaPlayer, [@"fflags" UTF8String], [@"nobuffer" UTF8String]);
+        //ijkmp_set_format_option(_mediaPlayer, [@"probsize" UTF8String], [@"4096" UTF8String]);
+#endif
+        // init extra
+        _keepScreenOnWhilePlaying = YES;
+        [self setScreenOn:YES];
+        
+        _registeredNotifications = [[NSMutableArray alloc] init];
+        [self registerApplicationObservers];
+    }
+    return self;
+}
+
+- (void)setContentURLString:(NSString *)aUrlString
+{
+    if (nil == aUrlString) {
+        return;
+    }
+    
+    _ffMrl = [[IJKFFMrl alloc] initWithMrl:aUrlString];
+}
+
 - (void)setScreenOn: (BOOL)on
 {
     [IJKMediaModule sharedModule].mediaModuleIdleTimerDisabled = on;
@@ -815,6 +883,12 @@ int format_control_message(void *opaque, int type, void *data, size_t data_size)
             [self pause];
         }
     });
+}
+
+//mabiao
+- (void)bufferFlush
+{
+    ijkmp_queue_flush(_mediaPlayer);
 }
 
 @end

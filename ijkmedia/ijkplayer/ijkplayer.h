@@ -199,4 +199,6 @@ void           *ijkmp_set_weak_thiz(IjkMediaPlayer *mp, void *weak_thiz);
 /* return < 0 if aborted, 0 if no packet and > 0 if packet.  */
 int             ijkmp_get_msg(IjkMediaPlayer *mp, AVMessage *msg, int block);
 
+int             ijkmp_queue_flush(IjkMediaPlayer *mp); //mabiao
+
 #endif

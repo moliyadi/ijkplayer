@@ -70,6 +70,12 @@ IJK_EXTERN NSString *const IJKMediaPlaybackIsPreparedToPlayDidChangeNotification
 IJK_EXTERN NSString *const IJKMoviePlayerLoadStateDidChangeNotification;
 IJK_EXTERN NSString *const IJKMoviePlayerPlaybackDidFinishNotification;
 IJK_EXTERN NSString *const IJKMoviePlayerPlaybackStateDidChangeNotification;
+@optional
+/*  mabiao
+ 
+ need use before - (void)prepareToPlay
+ */
+- (void)setContentURLString:(NSString *)aUrlString;
 
 @end
 

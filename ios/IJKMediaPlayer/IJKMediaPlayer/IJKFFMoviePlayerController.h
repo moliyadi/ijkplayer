@@ -67,6 +67,22 @@
                    withOptions:(IJKFFOptions *)options
            withSegmentResolver:(id<IJKMediaSegmentResolver>)segmentResolver;
 
+/*  mabiao
+ 
+ */
+- (id)initWithOptions:(IJKFFOptions *)options
+           withSegmentResolver:(id<IJKMediaSegmentResolver>)segmentResolver;
+/*  mabiao
+ 
+    need use before - (void)prepareToPlay
+ */
+- (void)setContentURLString:(NSString *)aUrlString;
+/*  mabiao
+ 
+    清除缓存队列
+ */
+- (void)bufferFlush; //Added by mabiao 清除缓存队列
+
 - (void)prepareToPlay;
 - (void)play;
 - (void)pause;

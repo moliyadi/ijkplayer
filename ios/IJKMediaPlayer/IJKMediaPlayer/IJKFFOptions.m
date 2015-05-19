@@ -54,6 +54,29 @@
     }
 }
 
+/*
+ Added by mabiao
+ */
+- (void)applyToForWaitShot:(IjkMediaPlayer *)mediaPlayer
+{
+//    [self logOptions];
+//    
+//    [self setCodecOption:@"skip_loop_filter"
+//               withInt64:self.skipLoopFilter
+//                      to:mediaPlayer];
+//    [self setCodecOption:@"skip_frame"
+//               withInt64:self.skipFrame
+//                      to:mediaPlayer];
+//    
+//    ijkmp_set_picture_queue_capicity(mediaPlayer, _frameBufferCount);
+//    ijkmp_set_max_fps(mediaPlayer, _maxFps);
+//    ijkmp_set_framedrop(mediaPlayer, _frameDrop);
+    
+    [self setFormatOption:@"analyzeduration" withString:@"2000000" to:mediaPlayer];
+//    [self setFormatOption:@"fflags" withString:@"nobuffer" to:mediaPlayer];
+//    [self setFormatOption:@"probsize" withString:@"4096" to:mediaPlayer];
+}
+
 - (void)logOptions
 {
     NSMutableString *echo = [[NSMutableString alloc] init];

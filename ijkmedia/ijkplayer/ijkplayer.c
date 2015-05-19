@@ -707,3 +707,25 @@ int ijkmp_get_msg(IjkMediaPlayer *mp, AVMessage *msg, int block)
 
     return -1;
 }
+
+//Added by mabiao
+static int ijkmp_queue_flush_l(IjkMediaPlayer *mp)
+{
+    assert(mp);
+    
+    ffp_packet_queue_flush(&mp->ffplayer->is->audioq);
+    ffp_packet_queue_flush(&mp->ffplayer->is->videoq);
+    
+    return 0;
+}
+int ijkmp_queue_flush(IjkMediaPlayer *mp)
+{
+    assert(mp);
+    MPTRACE("ijkmp_queue_flush()\n");
+    pthread_mutex_lock(&mp->mutex);
+    int retval = ijkmp_queue_flush_l(mp);
+    pthread_mutex_unlock(&mp->mutex);
+    MPTRACE("ijkmp_queue_flush()=%d\n", retval);
+    return retval;
+}
+

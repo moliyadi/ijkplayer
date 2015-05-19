@@ -26,6 +26,7 @@ typedef struct IjkMediaPlayer IjkMediaPlayer;
 +(IJKFFOptions *)optionsByDefault;
 
 -(void)applyTo:(IjkMediaPlayer *)mediaPlayer;
+-(void)applyToForWaitShot:(IjkMediaPlayer *)mediaPlayer; //mabiao
 
 @property(nonatomic) IJKAVDiscard skipLoopFilter;
 @property(nonatomic) IJKAVDiscard skipFrame;
