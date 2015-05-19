@@ -87,6 +87,7 @@ static const NSInteger kEC_PlayerItemCancelled      = 5002;
 
 static void *KVO_AVPlayer_rate          = &KVO_AVPlayer_rate;
 static void *KVO_AVPlayer_currentItem   = &KVO_AVPlayer_currentItem;
+static void *KVO_AVPlayer_airplay   = &KVO_AVPlayer_airplay;
 
 static void *KVO_AVPlayerItem_state                     = &KVO_AVPlayerItem_state;
 static void *KVO_AVPlayerItem_loadedTimeRanges          = &KVO_AVPlayerItem_loadedTimeRanges;
@@ -126,6 +127,7 @@ static void *KVO_AVPlayerItem_playbackBufferEmpty       = &KVO_AVPlayerItem_play
     BOOL _isSeeking;
     BOOL _isError;
     BOOL _isCompleted;
+    BOOL _isShutdown;
     
     BOOL _pauseInBackground;
     
@@ -150,6 +152,9 @@ static void *KVO_AVPlayerItem_playbackBufferEmpty       = &KVO_AVPlayerItem_play
 @synthesize controlStyle                = _controlStyle;
 @synthesize scalingMode                 = _scalingMode;
 @synthesize shouldAutoplay              = _shouldAutoplay;
+@synthesize isDanmakuMediaAirPlay       = _isDanmakuMediaAirPlay;
+
+static IJKAVMoviePlayerController* instance;
 
 - (id)initWithContentURL:(NSURL *)aUrl
 {
@@ -187,9 +192,22 @@ static void *KVO_AVPlayerItem_playbackBufferEmpty       = &KVO_AVPlayerItem_play
     return self;
 }
 
++ (id)getInstance:(NSString *)aUrl
+{
+    if (instance == nil) {
+        instance = [[IJKAVMoviePlayerController alloc] initWithContentURLString:aUrl];
+    } else {
+        instance = [instance initWithContentURLString:aUrl];
+    }
+    return instance;
+}
+
 - (id)initWithContentURLString:(NSString *)aUrl
 {
     NSURL *url;
+    if (aUrl == nil) {
+        aUrl = @"";
+    }
     if ([aUrl rangeOfString:@"/"].location == 0) {
         //本地
         url = [NSURL fileURLWithPath:aUrl];
@@ -267,6 +285,7 @@ static void *KVO_AVPlayerItem_playbackBufferEmpty       = &KVO_AVPlayerItem_play
 
 - (void)shutdown
 {
+    _isShutdown = YES;
     [self stop];
     
     if (_playerItem != nil) {
@@ -291,7 +310,13 @@ static void *KVO_AVPlayerItem_playbackBufferEmpty       = &KVO_AVPlayerItem_play
 
 - (UIImage *)thumbnailImageAtCurrentTime
 {
-    return nil;
+    AVAssetImageGenerator *imageGenerator = [AVAssetImageGenerator assetImageGeneratorWithAsset:_playAsset];
+    NSError *error = nil;
+    CMTime time = CMTimeMakeWithSeconds(self.currentPlaybackTime, 1);
+    CMTime actualTime;
+    CGImageRef cgImage = [imageGenerator copyCGImageAtTime:time actualTime:&actualTime error:&error];
+    UIImage *image = [UIImage imageWithCGImage:cgImage];
+    return image;
 }
 
 - (void)setCurrentPlaybackTime:(NSTimeInterval)aCurrentPlaybackTime
@@ -300,17 +325,19 @@ static void *KVO_AVPlayerItem_playbackBufferEmpty       = &KVO_AVPlayerItem_play
         return;
     
     _isSeeking = YES;
-    
     [self didPlaybackStateChange];
     [self didLoadStateChange];
+    if (_isPrerolling) {
+        [_player pause];
+    }
     
-    [_player pause];
     [_player seekToTime:CMTimeMakeWithSeconds(aCurrentPlaybackTime, NSEC_PER_SEC)
       completionHandler:^(BOOL finished) {
           dispatch_async(dispatch_get_main_queue(), ^{
               _isSeeking = NO;
-              [_player play];
-              
+              if (_isPrerolling) {
+                  [_player play];
+              }
               [self didPlaybackStateChange];
               [self didLoadStateChange];
           });
@@ -395,6 +422,9 @@ static void *KVO_AVPlayerItem_playbackBufferEmpty       = &KVO_AVPlayerItem_play
 
 - (void)didPrepareToPlayAsset:(AVURLAsset *)asset withKeys:(NSArray *)requestedKeys
 {
+    if (_isShutdown)
+        return;
+
     /* Make sure that the value of each key has loaded successfully. */
     for (NSString *thisKey in requestedKeys)
     {
@@ -495,6 +525,11 @@ static void *KVO_AVPlayerItem_playbackBufferEmpty       = &KVO_AVPlayerItem_play
                            forKeyPath:@"rate"
                               options:NSKeyValueObservingOptionInitial | NSKeyValueObservingOptionNew
                               context:KVO_AVPlayer_rate];
+        
+        [_playerKVO safelyAddObserver:self
+                           forKeyPath:@"airPlayVideoActive"
+                              options:NSKeyValueObservingOptionInitial | NSKeyValueObservingOptionNew
+                              context:KVO_AVPlayer_airplay];
     }
     
     /* Make our new AVPlayerItem the AVPlayer's current item. */
@@ -602,16 +637,25 @@ static void *KVO_AVPlayerItem_playbackBufferEmpty       = &KVO_AVPlayerItem_play
 
 - (void)assetFailedToPrepareForPlayback:(NSError *)error
 {
+    if (_isShutdown)
+        return;
+
     [self onError:error];
 }
 
 - (void)playerItemFailedToPlayToEndTime:(NSNotification *)notification
 {
+    if (_isShutdown)
+        return;
+
     [self onError:[notification.userInfo objectForKey:@"error"]];
 }
 
 - (void)playerItemDidReachEnd:(NSNotification *)notification
 {
+    if (_isShutdown)
+        return;
+
     _isCompleted = YES;
     
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -635,6 +679,9 @@ static void *KVO_AVPlayerItem_playbackBufferEmpty       = &KVO_AVPlayerItem_play
                         change:(NSDictionary*)change
                        context:(void*)context
 {
+    if (_isShutdown)
+        return;
+
     if (context == KVO_AVPlayerItem_state)
     {
         /* AVPlayerItem "status" property value observer. */
@@ -765,6 +812,10 @@ static void *KVO_AVPlayerItem_playbackBufferEmpty       = &KVO_AVPlayerItem_play
             [self didLoadStateChange];
         }
     }
+    else if (context == KVO_AVPlayer_airplay)
+    {
+         [[NSNotificationCenter defaultCenter] postNotificationName:IJKMoviePlayerIsAirPlayVideoActiveDidChangeNotification object:nil userInfo:nil];
+    }
     else
     {
         [super observeValueForKeyPath:path ofObject:object change:change context:context];
@@ -831,6 +882,7 @@ static void *KVO_AVPlayerItem_playbackBufferEmpty       = &KVO_AVPlayerItem_play
                                                  name:UIApplicationWillTerminateNotification
                                                object:nil];
     [_registeredNotifications addObject:UIApplicationWillTerminateNotification];
+
 }
 
 - (void)unregisterApplicationObservers
@@ -840,6 +892,63 @@ static void *KVO_AVPlayerItem_playbackBufferEmpty       = &KVO_AVPlayerItem_play
                                                         name:name
                                                       object:nil];
     }
+}
+
+-(BOOL)allowsMediaAirPlay
+{
+    if (!_player)
+        return NO;
+    return [_player allowsAirPlayVideo];
+}
+
+-(void)setAllowsMediaAirPlay:(BOOL)b
+{
+    if (!_player)
+        return;
+    [_player setAllowsAirPlayVideo:b];
+}
+
+-(BOOL)airPlayMediaActive
+{
+    if (!_player)
+        return NO;
+
+    return _player.airPlayVideoActive || self.isDanmakuMediaAirPlay;
+}
+
+- (void)setScalingMode: (MPMovieScalingMode) aScalingMode
+{
+    MPMovieScalingMode newScalingMode = aScalingMode;
+    switch (aScalingMode) {
+        case MPMovieScalingModeNone:
+            [_view setContentMode:UIViewContentModeCenter];
+            break;
+        case MPMovieScalingModeAspectFit:
+            [_view setContentMode:UIViewContentModeScaleAspectFit];
+            break;
+        case MPMovieScalingModeAspectFill:
+            [_view setContentMode:UIViewContentModeScaleAspectFill];
+            break;
+        case MPMovieScalingModeFill:
+            [_view setContentMode:UIViewContentModeScaleToFill];
+            break;
+        default:
+            newScalingMode = _scalingMode;
+    }
+    
+    _scalingMode = newScalingMode;
+}
+
+
+-(BOOL)isDanmakuMediaAirPlay
+{
+    return _isDanmakuMediaAirPlay;
+}
+
+-(void)setIsDanmakuMediaAirPlay:(BOOL)isDanmakuMediaAirPlay
+{
+    _isDanmakuMediaAirPlay = isDanmakuMediaAirPlay;
+    [[NSNotificationCenter defaultCenter] postNotificationName:IJKMoviePlayerIsAirPlayVideoActiveDidChangeNotification object:nil userInfo:nil];
 }
 
 - (void)applicationWillEnterForeground

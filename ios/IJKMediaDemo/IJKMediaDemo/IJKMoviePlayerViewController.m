@@ -42,10 +42,16 @@
     //NSURL *theMovieURL = [NSURL URLWithString:@"http://wshdl.acgvideo.com/live/live_5099_3038_d0ffe541.flv"];
     //NSURL *theMovieURL = [NSURL URLWithString:@"https://devimages.apple.com.edgekey.net/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8"];
     //NSURL *theMovieURL = [NSURL URLWithString:@"http://192.166.62.108/guangDongPlayGood.ts"];
-    NSURL *theMovieURL = [NSURL URLWithString:@"http://192.168.88.2/dvb/live_514000_1_5_4_42_2_41_4.mp4"];
+    NSURL *theMovieURL = [NSURL URLWithString:@"http://192.168.88.2/dvb/live_514000_1_5_1_33_27_32_4.mp4"];
+
+    //NSURL *theMovieURL = [NSURL URLWithString:@"http://vhotwsh.video.qq.com/flv/32/146/r0015d10iwu.p203.1.mp4?vkey=68023055CEC9CC9E1D988B0E71E4B58C38B0374F1CB9805F4A1901D8E87B42137DD9680CF88D3685C3A59F030BAE55AA2E7238551DCB6BFF&fmt=sd&type=mp4"];
 
     [IJKFFMoviePlayerController setLogReport:YES];
+#if 1 //mabiao
+    self.player = [[IJKFFMoviePlayerController alloc] initWithContentURL:theMovieURL withOptions:[IJKFFOptions optionsByDefault]];
+#else
     self.player = [[IJKFFMoviePlayerController alloc] initWithContentURL:theMovieURL withOptions:nil];
+#endif
     self.player.view.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;
     self.player.view.frame = self.view.bounds;
 

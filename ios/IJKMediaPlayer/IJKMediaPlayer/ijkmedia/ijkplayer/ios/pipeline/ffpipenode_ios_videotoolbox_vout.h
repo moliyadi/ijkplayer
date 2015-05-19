@@ -1,9 +1,7 @@
 /*
- * IJKSDLAudioQueueController.h
+ * ffpipenode_ios_videotoolbox_vout.h
  *
- * Copyright (c) 2013-2014 Zhang Rui <bbcallen@gmail.com>
- *
- * based on https://github.com/kolyvan/kxmovie
+ * Copyright (c) 2014 Zhou Quan <zhouqicy@gmail.com>
  *
  * This file is part of ijkPlayer.
  *
@@ -22,20 +20,13 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#import <Foundation/Foundation.h>
+#ifndef FFPLAY__FF_FFPIPENODE_IOS_VIDEOTOOLBOX_VOUT_H
+#define FFPLAY__FF_FFPIPENODE_IOS_VIDEOTOOLBOX_VOUT_H
 
-#include "ijksdl/ijksdl_aout.h"
+#include "ijkplayer/ff_ffpipenode.h"
 
-@interface IJKSDLAudioQueueController : NSObject
+typedef struct FFPlayer FFPlayer;
 
-- (id)initWithAudioSpec:(const SDL_AudioSpec *)aSpec;
+IJKFF_Pipenode *ffpipenode_create_video_output_from_ios_videotoolbox(FFPlayer *ffp);
 
-- (void)play;
-- (void)pause;
-- (void)flush;
-- (void)stop;
-- (void)close;
-
-@property (nonatomic, readonly) SDL_AudioSpec spec;
-    
-@end
+#endif

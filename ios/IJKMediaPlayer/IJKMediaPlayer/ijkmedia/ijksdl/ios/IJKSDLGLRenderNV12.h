@@ -1,9 +1,7 @@
 /*
  * IJKSDLGLRenderNV12.h
  *
- * Copyright (c) 2014 Zhang Rui <bbcallen@gmail.com>
- *
- * based on https://github.com/kolyvan/kxmovie
+ * Copyright (c) 2014 Zhou Quan <zhouqicy@gmail.com>
  *
  * This file is part of ijkPlayer.
  *

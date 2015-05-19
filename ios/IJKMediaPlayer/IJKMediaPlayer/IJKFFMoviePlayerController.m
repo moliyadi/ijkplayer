@@ -56,6 +56,7 @@
 
     BOOL _keepScreenOnWhilePlaying;
     BOOL _pauseInBackground;
+    BOOL _isVideoToolboxOpen;
 
     NSMutableArray *_registeredNotifications;
 }
@@ -79,6 +80,11 @@
 @synthesize mediaMeta = _mediaMeta;
 @synthesize videoMeta = _videoMeta;
 @synthesize audioMeta = _audioMeta;
+
+@synthesize allowsMediaAirPlay = _allowsMediaAirPlay;
+@synthesize airPlayMediaActive = _airPlayMediaActive;
+
+@synthesize isDanmakuMediaAirPlay = _isDanmakuMediaAirPlay;
 
 #define FFP_IO_STAT_STEP (50 * 1024)
 
@@ -166,7 +172,7 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
         // init fields
         _controlStyle = MPMovieControlStyleNone;
         _scalingMode = MPMovieScalingModeAspectFit;
-        _shouldAutoplay = NO;
+        _shouldAutoplay = YES;
 
         // init media resource
         _ffMrl = [[IJKFFMrl alloc] initWithMrl:aUrlString];
@@ -179,6 +185,7 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
 
         ijkmp_set_weak_thiz(_mediaPlayer, (__bridge_retained void *) self);
         ijkmp_set_format_callback(_mediaPlayer, format_control_message, (__bridge void *) self);
+        ijkmp_set_auto_play_on_prepared(_mediaPlayer, _shouldAutoplay);
 
         // init video sink
 //        int chroma = SDL_FCC_RV24;
@@ -286,6 +293,21 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
     [self unregisterApplicationObservers];
 }
 
+- (void)setShouldAutoplay:(BOOL)shouldAutoplay
+{
+    _shouldAutoplay = shouldAutoplay;
+
+    if (!_mediaPlayer)
+        return;
+
+    ijkmp_set_auto_play_on_prepared(_mediaPlayer, shouldAutoplay);
+}
+
+- (BOOL)shouldAutoplay
+{
+    return _shouldAutoplay;
+}
+
 - (void)prepareToPlay
 {
     if (!_mediaPlayer)
@@ -339,6 +361,22 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
     _pauseInBackground = pause;
 }
 
+- (BOOL)isVideoToolboxOpen
+{
+    if (!_mediaPlayer)
+        return NO;
+
+    return _isVideoToolboxOpen;
+}
+
+- (void)setMaxBufferSize:(int)maxBufferSize
+{
+    if (!_mediaPlayer)
+        return;
+
+    ijkmp_set_max_buffer_size(_mediaPlayer, maxBufferSize);
+}
+
 + (void)setLogReport:(BOOL)preferLogReport
 {
     ijkmp_global_set_log_report(preferLogReport ? 1 : 0);
@@ -348,7 +386,7 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
 {
     if (!_mediaPlayer)
         return;
-
+    [self unregisterApplicationObservers];
     [self setScreenOn:NO];
 
     [self performSelectorInBackground:@selector(shutdownWaitStop:) withObject:self];
@@ -429,6 +467,9 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
         return 0.0f;
 
     NSTimeInterval ret = ijkmp_get_current_position(_mediaPlayer);
+    if (isnan(ret) || isinf(ret))
+        return -1;
+
     return ret / 1000;
 }
 
@@ -438,6 +479,9 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
         return 0.0f;
 
     NSTimeInterval ret = ijkmp_get_duration(_mediaPlayer);
+    if (isnan(ret) || isinf(ret))
+        return -1;
+
     return ret / 1000;
 }
 
@@ -503,7 +547,7 @@ inline static void fillMetaInternal(NSMutableDictionary *meta, IjkMediaMeta *raw
     const char *value = ijkmeta_get_string_l(rawMeta, name);
     if (value) {
         [meta setObject:[NSString stringWithUTF8String:value] forKey:key];
-    } else if (defaultValue){
+    } else if (defaultValue) {
         [meta setObject:defaultValue forKey:key];
     } else {
         [meta removeObjectForKey:key];
@@ -700,6 +744,14 @@ inline static void fillMetaInternal(NSMutableDictionary *meta, IjkMediaMeta *raw
             _seeking = NO;
             break;
         }
+        case FFP_MSG_VIDEO_DECODER_OPEN: {
+            _isVideoToolboxOpen = avmsg->arg1;
+            NSLog(@"FFP_MSG_VIDEO_DECODER_OPEN: %@", _isVideoToolboxOpen ? @"true" : @"false");
+            [[NSNotificationCenter defaultCenter]
+             postNotificationName:IJKMoviePlayerVideoDecoderOpenNotification
+             object:self];
+            break;
+        }
         default:
             // NSLog(@"unknown FFP_MSG_xxx(%d)", avmsg->what);
             break;
@@ -798,6 +850,52 @@ int format_control_message(void *opaque, int type, void *data, size_t data_size)
 - (void)ijkAudioEndInterruption
 {
     [self pause];
+}
+
+#pragma mark Airplay
+
+-(BOOL)allowsMediaAirPlay
+{
+    if (!self)
+        return NO;
+    return _allowsMediaAirPlay;
+}
+
+-(void)setAllowsMediaAirPlay:(BOOL)b
+{
+    if (!self)
+        return;
+    _allowsMediaAirPlay = b;
+}
+
+-(BOOL)airPlayMediaActive
+{
+    if (!self)
+        return NO;
+    if (_isDanmakuMediaAirPlay) {
+        return YES;
+    }
+    return NO;
+}
+
+-(BOOL)isDanmakuMediaAirPlay
+{
+    return _isDanmakuMediaAirPlay;
+}
+
+-(void)setIsDanmakuMediaAirPlay:(BOOL)isDanmakuMediaAirPlay
+{
+    _isDanmakuMediaAirPlay = isDanmakuMediaAirPlay;
+    if (_isDanmakuMediaAirPlay) {
+        _glView.scaleFactor = 1.0f;
+    }
+    else {
+        CGFloat scale = [[UIScreen mainScreen] scale];
+        if (scale < 0.1f)
+            scale = 1.0f;
+        _glView.scaleFactor = scale;
+    }
+     [[NSNotificationCenter defaultCenter] postNotificationName:IJKMoviePlayerIsAirPlayVideoActiveDidChangeNotification object:nil userInfo:nil];
 }
 
 #pragma mark app state changed

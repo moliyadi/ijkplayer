@@ -1,9 +1,7 @@
 /*
- * IJKSDLAudioQueueController.h
+ * ffpipeline_ios.h
  *
- * Copyright (c) 2013-2014 Zhang Rui <bbcallen@gmail.com>
- *
- * based on https://github.com/kolyvan/kxmovie
+ * Copyright (c) 2014 Zhou Quan <zhouqicy@gmail.com>
  *
  * This file is part of ijkPlayer.
  *
@@ -22,20 +20,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#import <Foundation/Foundation.h>
+#ifndef FFPLAY__FF_FFPIPELINE_IOS_H
+#define FFPLAY__FF_FFPIPELINE_IOS_H
 
-#include "ijksdl/ijksdl_aout.h"
+#include "ijkplayer/ff_ffpipeline.h"
 
-@interface IJKSDLAudioQueueController : NSObject
+typedef struct FFPlayer       FFPlayer;
+typedef struct IJKFF_Pipeline IJKFF_Pipeline;
 
-- (id)initWithAudioSpec:(const SDL_AudioSpec *)aSpec;
+IJKFF_Pipeline *ffpipeline_create_from_ios(FFPlayer *ffp);
+void ffpipeline_ios_set_frame_max_width(IJKFF_Pipeline *pipeline, int width);
+int  ffpipeline_ios_get_frame_max_width(IJKFF_Pipeline *pipeline);
+void ffpipeline_ios_set_videotoolbox_enabled(IJKFF_Pipeline *pipeline, int enabled);
 
-- (void)play;
-- (void)pause;
-- (void)flush;
-- (void)stop;
-- (void)close;
-
-@property (nonatomic, readonly) SDL_AudioSpec spec;
-    
-@end
+#endif

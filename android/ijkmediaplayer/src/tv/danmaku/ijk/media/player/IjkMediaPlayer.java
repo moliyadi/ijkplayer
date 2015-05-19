@@ -20,9 +20,8 @@ package tv.danmaku.ijk.media.player;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.Locale;
-import java.util.Map.Entry;
-import java.util.TreeMap;
 
 import tv.danmaku.ijk.media.player.annotations.AccessedByNative;
 import tv.danmaku.ijk.media.player.annotations.CalledByNative;
@@ -510,6 +509,10 @@ public final class IjkMediaPlayer extends SimpleMediaPlayer {
         _setOpenSLESEnabled(enabled);
     }
 
+    public void setAutoPlayOnPrepared(boolean enabled) {
+        _setAutoPlayOnPrepared(enabled);
+    }
+
     private native void _setAvFormatOption(String name, String value);
     private native void _setAvCodecOption(String name, String value);
     private native void _setSwScaleOption(String name, String value);
@@ -517,6 +520,7 @@ public final class IjkMediaPlayer extends SimpleMediaPlayer {
     private native void _setFrameDrop(int frameDrop);
     private native void _setMediaCodecEnabled(boolean enabled);
     private native void _setOpenSLESEnabled(boolean enabled);
+    private native void _setAutoPlayOnPrepared(boolean enabled);
 
     public Bundle getMediaMeta() {
         return _getMediaMeta();
@@ -801,7 +805,7 @@ public final class IjkMediaPlayer extends SimpleMediaPlayer {
                 return null;
 
             Log.i(TAG, String.format(Locale.US, "onSelectCodec: mime=%s, profile=%d, level=%d", mimeType, profile, level));
-            TreeMap<Integer, IjkMediaCodecInfo> candidateCodecList = new TreeMap<Integer, IjkMediaCodecInfo>(); 
+            ArrayList<IjkMediaCodecInfo> candidateCodecList = new ArrayList<IjkMediaCodecInfo>();
             int numCodecs = MediaCodecList.getCodecCount();
             for (int i = 0; i < numCodecs; i++) {
                 MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
@@ -825,19 +829,23 @@ public final class IjkMediaPlayer extends SimpleMediaPlayer {
                     if (candidate == null)
                         continue;
 
-                    candidateCodecList.put(candidate.mRank, candidate);
+                    candidateCodecList.add(candidate);
                     Log.i(TAG, String.format(Locale.US, "candidate codec: %s rank=%d", codecInfo.getName(), candidate.mRank));
                     candidate.dumpProfileLevels(mimeType);
                 }
             }
 
-            Entry<Integer, IjkMediaCodecInfo> bestEntry = candidateCodecList.lastEntry();
-            if (bestEntry == null)
+            if (candidateCodecList.isEmpty()) {
                 return null;
+            }
 
-            IjkMediaCodecInfo bestCodec = bestEntry.getValue();
-            if (bestCodec == null || bestCodec.mCodecInfo == null)
-                return null;
+            IjkMediaCodecInfo bestCodec = candidateCodecList.get(0);
+
+            for (IjkMediaCodecInfo codec : candidateCodecList) {
+                if (codec.mRank > bestCodec.mRank) {
+                    bestCodec = codec;
+                }
+            }
 
             if (bestCodec.mRank < IjkMediaCodecInfo.RANK_LAST_CHANCE) {
                 Log.w(TAG, String.format(Locale.US, "unaccetable codec: %s", bestCodec.mCodecInfo.getName()));

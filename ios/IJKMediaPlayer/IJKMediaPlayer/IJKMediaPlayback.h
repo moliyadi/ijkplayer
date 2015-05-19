@@ -51,11 +51,15 @@
 
 @property(nonatomic, readonly) int64_t numberOfBytesTransferred;
 
-- (UIImage *)thumbnailImageAtCurrentTime;
-
 @property(nonatomic) MPMovieControlStyle controlStyle;
 @property(nonatomic) MPMovieScalingMode scalingMode;
 @property(nonatomic) BOOL shouldAutoplay;
+
+@property (nonatomic) BOOL allowsMediaAirPlay;
+@property (nonatomic) BOOL isDanmakuMediaAirPlay;
+@property (nonatomic, readonly) BOOL airPlayMediaActive;
+
+- (UIImage *)thumbnailImageAtCurrentTime;
 
 #pragma mark Notifications
 
@@ -77,6 +81,8 @@ IJK_EXTERN NSString *const IJKMoviePlayerPlaybackStateDidChangeNotification;
  */
 - (void)setContentURLString:(NSString *)aUrlString;
 
+IJK_EXTERN NSString *const IJKMoviePlayerIsAirPlayVideoActiveDidChangeNotification;
+IJK_EXTERN NSString *const IJKMoviePlayerVideoDecoderOpenNotification;
 @end
 
 #pragma mark IJKMediaResource

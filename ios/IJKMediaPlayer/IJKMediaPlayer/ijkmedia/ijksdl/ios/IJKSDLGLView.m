@@ -176,6 +176,8 @@ static void mat4f_LoadOrtho(float left, float right, float bottom, float top, fl
     
     int64_t         _lastFrameTime;
 
+    GLfloat         _prevScaleFactor;
+
     id<IJKSDLGLRender> _renderer;
 
     BOOL            _didSetContentMode;
@@ -209,11 +211,12 @@ enum {
                                         kEAGLColorFormatRGBA8, kEAGLDrawablePropertyColorFormat,
                                         nil];
 
-        CGFloat scaleFactor = [[UIScreen mainScreen] scale];
-        if (scaleFactor < 1.0f)
-            scaleFactor = 1.0f;
+        _scaleFactor = [[UIScreen mainScreen] scale];
+        if (_scaleFactor < 0.1f)
+            _scaleFactor = 1.0f;
+        _prevScaleFactor = _scaleFactor;
 
-        [eaglLayer setContentsScale:scaleFactor];
+        [eaglLayer setContentsScale:_scaleFactor];
 
         _context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
 
@@ -310,6 +313,11 @@ enum {
 	_context = nil;
 
     [self unregisterApplicationObservers];
+}
+
+- (void)setScaleFactor:(CGFloat)scaleFactor
+{
+    _scaleFactor = scaleFactor;
 }
 
 - (void)layoutSubviews
@@ -500,6 +508,14 @@ exit:
     }
 
     [EAGLContext setCurrentContext:_context];
+
+    CGFloat newScaleFactor = _scaleFactor;
+    if (_prevScaleFactor != newScaleFactor) {
+        CAEAGLLayer *eaglLayer = (CAEAGLLayer*) self.layer;
+        [eaglLayer setContentsScale:newScaleFactor];
+
+        _prevScaleFactor = newScaleFactor;
+    }
 
     if (![self setupDisplay:overlay]) {
         if ([EAGLContext currentContext] == _context)
@@ -778,28 +794,14 @@ exit:
 
     // OpenGL ES measures data in PIXELS
     // Create a graphics context with the target size measured in POINTS
-    NSInteger widthInPoints, heightInPoints;
-    if (NULL != UIGraphicsBeginImageContextWithOptions) {
-        // On iOS 4 and later, use UIGraphicsBeginImageContextWithOptions to take the scale into consideration
-        // Set the scale parameter to your OpenGL ES view's contentScaleFactor
-        // so that you get a high-resolution snapshot when its value is greater than 1.0
-        CGFloat scale = self.contentScaleFactor;
-        widthInPoints = width / scale;
-        heightInPoints = height / scale;
-        UIGraphicsBeginImageContextWithOptions(CGSizeMake(widthInPoints, heightInPoints), NO, scale);
-    } else {
-        // On iOS prior to 4, fall back to use UIGraphicsBeginImageContext
-        widthInPoints = width;
-        heightInPoints = height;
-        UIGraphicsBeginImageContext(CGSizeMake(widthInPoints, heightInPoints));
-    }
+    UIGraphicsBeginImageContext(CGSizeMake(width, height));
 
     CGContextRef cgcontext = UIGraphicsGetCurrentContext();
     // UIKit coordinate system is upside down to GL/Quartz coordinate system
     // Flip the CGImage by rendering it to the flipped bitmap context
     // The size of the destination area is measured in POINTS
     CGContextSetBlendMode(cgcontext, kCGBlendModeCopy);
-    CGContextDrawImage(cgcontext, CGRectMake(0.0, 0.0, widthInPoints, heightInPoints), iref);
+    CGContextDrawImage(cgcontext, CGRectMake(0.0, 0.0, width, height), iref);
 
     // Retrieve the UIImage from the current context
     UIImage *image = UIGraphicsGetImageFromCurrentImageContext();

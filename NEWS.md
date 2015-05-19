@@ -1,7 +1,12 @@
 tag next
 --------------------------------
+ios: remove armv7s build from default
+
+tag k0.2.3
+--------------------------------
 android: support OpenSL ES
 ios: support NV12 Render
+ios: support VideoToolBox
 
 tag n0.2.2:
 --------------------------------
