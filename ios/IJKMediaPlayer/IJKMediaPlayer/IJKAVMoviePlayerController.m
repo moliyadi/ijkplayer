@@ -73,7 +73,6 @@
 #import "IJKMediaModule.h"
 #import "IJKMediaUtils.h"
 #import "IJKKVOController.h"
-#import <AVFoundation/AVFoundation.h>
 
 // avoid float equal compare
 static const float kMinPlayingRate          = 0.00001f;
@@ -95,7 +94,7 @@ static void *KVO_AVPlayerItem_playbackLikelyToKeepUp    = &KVO_AVPlayerItem_play
 static void *KVO_AVPlayerItem_playbackBufferFull        = &KVO_AVPlayerItem_playbackBufferFull;
 static void *KVO_AVPlayerItem_playbackBufferEmpty       = &KVO_AVPlayerItem_playbackBufferEmpty;
 
-@interface IJKAVMoviePlayerController() <IJKAudioSessionDelegate>
+@interface IJKAVMoviePlayerController()
 
 // Redeclare property
 @property(nonatomic, readwrite) UIView *view;
@@ -163,31 +162,30 @@ static IJKAVMoviePlayerController* instance;
         self.controlStyle = MPMovieControlStyleNone;
         self.scalingMode = MPMovieScalingModeAspectFit;
         self.shouldAutoplay = NO;
-        
+
         _playUrl = aUrl;
-        
+
         _avView = [[IJKAVPlayerLayerView alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
         self.view = _avView;
-        
+
         // TODO:
-        [[IJKAudioKit sharedInstance] setupAudioSession:self];
-        
-        _isPrerolling   = NO;
-        
-        _isSeeking      = NO;
-        _isError        = NO;
-        _isCompleted    = NO;
+        [[IJKAudioKit sharedInstance] setupAudioSession];
+
+        _isPrerolling           = NO;
+
+        _isSeeking              = NO;
+        _isError                = NO;
+        _isCompleted            = NO;
         self.bufferingProgress  = 0;
-        
+
         _playbackLikelyToKeeyUp = NO;
         _playbackBufferEmpty    = YES;
         _playbackBufferFull     = NO;
-        
+
         // init extra
         [self setScreenOn:YES];
-        
+
         _registeredNotifications = [[NSMutableArray alloc] init];
-        [self registerApplicationObservers];
     }
     return self;
 }
@@ -424,7 +422,7 @@ static IJKAVMoviePlayerController* instance;
 {
     if (_isShutdown)
         return;
-
+    
     /* Make sure that the value of each key has loaded successfully. */
     for (NSString *thisKey in requestedKeys)
     {
@@ -466,7 +464,7 @@ static IJKAVMoviePlayerController* instance;
     /* Create a new instance of AVPlayerItem from the now successfully loaded AVAsset. */
     _playerItem = [AVPlayerItem playerItemWithAsset:asset];
     _playerItemKVO = [[IJKKVOController alloc] initWithTarget:_playerItem];
-    
+    [self registerApplicationObservers];
     /* Observe the player item "status" key to determine when it is ready to play. */
     [_playerItemKVO safelyAddObserver:self
                            forKeyPath:@"status"
@@ -639,7 +637,7 @@ static IJKAVMoviePlayerController* instance;
 {
     if (_isShutdown)
         return;
-
+    
     [self onError:error];
 }
 
@@ -647,7 +645,7 @@ static IJKAVMoviePlayerController* instance;
 {
     if (_isShutdown)
         return;
-
+    
     [self onError:[notification.userInfo objectForKey:@"error"]];
 }
 
@@ -655,7 +653,7 @@ static IJKAVMoviePlayerController* instance;
 {
     if (_isShutdown)
         return;
-
+    
     _isCompleted = YES;
     
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -681,7 +679,7 @@ static IJKAVMoviePlayerController* instance;
 {
     if (_isShutdown)
         return;
-
+    
     if (context == KVO_AVPlayerItem_state)
     {
         /* AVPlayerItem "status" property value observer. */
@@ -814,7 +812,7 @@ static IJKAVMoviePlayerController* instance;
     }
     else if (context == KVO_AVPlayer_airplay)
     {
-         [[NSNotificationCenter defaultCenter] postNotificationName:IJKMoviePlayerIsAirPlayVideoActiveDidChangeNotification object:nil userInfo:nil];
+        [[NSNotificationCenter defaultCenter] postNotificationName:IJKMoviePlayerIsAirPlayVideoActiveDidChangeNotification object:nil userInfo:nil];
     }
     else
     {
@@ -834,24 +832,15 @@ static IJKAVMoviePlayerController* instance;
     return error;
 }
 
-
-
-#pragma mark IJKAudioSessionDelegate
-
-- (void)ijkAudioBeginInterruption
-{
-    [self pause];
-}
-
-- (void)ijkAudioEndInterruption
-{
-    [self pause];
-}
-
 #pragma mark app state changed
 
 - (void)registerApplicationObservers
 {
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(audioSessionInterrupt:)
+                                                 name:AVAudioSessionInterruptionNotification
+                                               object:nil];
+    [_registeredNotifications addObject:AVAudioSessionInterruptionNotification];
     
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(applicationWillEnterForeground)
@@ -882,7 +871,7 @@ static IJKAVMoviePlayerController* instance;
                                                  name:UIApplicationWillTerminateNotification
                                                object:nil];
     [_registeredNotifications addObject:UIApplicationWillTerminateNotification];
-
+    
 }
 
 - (void)unregisterApplicationObservers
@@ -912,7 +901,7 @@ static IJKAVMoviePlayerController* instance;
 {
     if (!_player)
         return NO;
-
+    
     return _player.airPlayVideoActive || self.isDanmakuMediaAirPlay;
 }
 
@@ -939,6 +928,10 @@ static IJKAVMoviePlayerController* instance;
     _scalingMode = newScalingMode;
 }
 
+- (void)setPauseInBackground:(BOOL)pause
+{
+    _pauseInBackground = pause;
+}
 
 -(BOOL)isDanmakuMediaAirPlay
 {
@@ -951,44 +944,56 @@ static IJKAVMoviePlayerController* instance;
     [[NSNotificationCenter defaultCenter] postNotificationName:IJKMoviePlayerIsAirPlayVideoActiveDidChangeNotification object:nil userInfo:nil];
 }
 
+- (void)audioSessionInterrupt:(NSNotification *)notification
+{
+    int reason = [[[notification userInfo] valueForKey:AVAudioSessionInterruptionTypeKey] intValue];
+    switch (reason) {
+        case AVAudioSessionInterruptionTypeBegan: {
+            NSLog(@"IJKAVMoviePlayerController:audioSessionInterrupt: begin\n");
+            [self pause];
+            [[IJKAudioKit sharedInstance] setActive:NO];
+            break;
+        }
+        case AVAudioSessionInterruptionTypeEnded: {
+            NSLog(@"IJKAVMoviePlayerController:audioSessionInterrupt: end\n");
+            [[IJKAudioKit sharedInstance] setActive:YES];
+            [self play];
+            break;
+        }
+    }
+}
+
 - (void)applicationWillEnterForeground
 {
-    NSLog(@"IJKAVMoviePlayerController:applicationWillEnterForeground: %d", (int)[UIApplication sharedApplication].applicationState);
+    NSLog(@"IJKAVMoviePlayerController:applicationWillEnterForeground: %d\n", (int)[UIApplication sharedApplication].applicationState);
 }
 
 - (void)applicationDidBecomeActive
 {
-    NSLog(@"IJKAVMoviePlayerController:applicationDidBecomeActive: %d", (int)[UIApplication sharedApplication].applicationState);
+    NSLog(@"IJKAVMoviePlayerController:applicationDidBecomeActive: %d\n", (int)[UIApplication sharedApplication].applicationState);
+    [_avView setPlayer:_player];
 }
 
 - (void)applicationWillResignActive
 {
-    NSLog(@"IJKAVMoviePlayerController:applicationWillResignActive: %d", (int)[UIApplication sharedApplication].applicationState);
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (_pauseInBackground) {
-            [self pause];
-        }
-    });
+    NSLog(@"IJKAVMoviePlayerController:applicationWillResignActive: %d\n", (int)[UIApplication sharedApplication].applicationState);
 }
 
 - (void)applicationDidEnterBackground
 {
-    NSLog(@"IJKAVMoviePlayerController:applicationDidEnterBackground: %d", (int)[UIApplication sharedApplication].applicationState);
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (_pauseInBackground) {
-            [self pause];
+    NSLog(@"IJKAVMoviePlayerController:applicationDidEnterBackground: %d\n", (int)[UIApplication sharedApplication].applicationState);
+    if (_pauseInBackground && ![self airPlayMediaActive]) {
+        [self pause];
+    } else {
+        if (![self airPlayMediaActive]) {
+            [_avView setPlayer:nil];
         }
-    });
+    }
 }
 
 - (void)applicationWillTerminate
 {
-    NSLog(@"IJKAVMoviePlayerController:applicationWillTerminate: %d", (int)[UIApplication sharedApplication].applicationState);
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (_pauseInBackground) {
-            [self pause];
-        }
-    });
+    NSLog(@"IJKAVMoviePlayerController:applicationWillTerminate: %d\n", (int)[UIApplication sharedApplication].applicationState);
 }
 
 @end

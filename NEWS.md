@@ -1,6 +1,9 @@
 tag next
 --------------------------------
 ios: remove armv7s build from default
+player: introduce key-value options
+ios: demo improvement
+ios: support init/play in background.
 
 tag k0.2.3
 --------------------------------
