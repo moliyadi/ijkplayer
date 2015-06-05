@@ -198,11 +198,13 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
 
         // init audio sink
         [[IJKAudioKit sharedInstance] setupAudioSession:self];
-
+#if 0 //mabiao
+        ijkmp_ios_set_videotoolbox_enabled(_mediaPlayer, YES);
+#else
         // apply ffmpeg options
         [options applyTo:_mediaPlayer];
         _pauseInBackground = options.pauseInBackground;
-
+#endif
         // init extra
         _keepScreenOnWhilePlaying = YES;
         [self setScreenOn:YES];

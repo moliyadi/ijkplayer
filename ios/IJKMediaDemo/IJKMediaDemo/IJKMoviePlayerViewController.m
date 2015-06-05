@@ -41,14 +41,35 @@
 
     //NSURL *theMovieURL = [NSURL URLWithString:@"http://wshdl.acgvideo.com/live/live_5099_3038_d0ffe541.flv"];
     //NSURL *theMovieURL = [NSURL URLWithString:@"https://devimages.apple.com.edgekey.net/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8"];
-    //NSURL *theMovieURL = [NSURL URLWithString:@"http://192.166.62.108/guangDongPlayGood.ts"];
-    NSURL *theMovieURL = [NSURL URLWithString:@"http://192.168.88.2/dvb/live_514000_1_5_1_33_27_32_4.mp4"];
+    //NSURL *theMovieURL = [NSURL URLWithString:@"http://192.166.62.108/guangDongPlayBad.ts"];
+    //NSURL *theMovieURL = [NSURL URLWithString:@"http://192.166.62.108/jingZhou.mp4"];
+    //NSURL *theMovieURL = [NSURL URLWithString:@"http://192.166.62.108/vlc_output2.mp4"]; //网关
+    //NSURL *theMovieURL = [NSURL URLWithString:@"http://192.168.88.2/dvb/live_514000_1_5_1_33_27_32_4.mp4"]; //网关盒子内地址
+    //NSURL *theMovieURL = [NSURL URLWithString:@"http://192.166.62.60:1935/vod/_definst_/mp4:GCABLE_20150310091030344194126/20150310091030344194126.mp4/playlist.m3u8"];
+    //NSURL *theMovieURL = [NSURL URLWithString:@"http://cdnbakmi.kaltura.com/p/243342/sp/24334200/playManifest/entryId/0_uka1msg4/flavorIds/1_vqhfu6uy,1_80sohj7p/format/applehttp/protocol/http/a.m3u8"];
+    NSURL *theMovieURL = [NSURL URLWithString:@"http://114.80.182.141/sohu/s26h23eab6/v1/TmX3TmPAoKIsD40veVfshMNtDGvIvBxXRFwoSJKqKBgXpxWsm3AXp.mp4?k=n8zykY&p=jWlvzSwAqmkCqSY&r=TUqvtvGDXixnyLbUZDWSqTPGRDb4WGoioMycY&q=OpCChW7IWBodRDbsfhASotE7ZD6sWDXOZYXOfYAHfhvXvmbcWJWXfGA4RYeSqD2tfOoUZDS&cip=115.28.209.129"];
 
     //NSURL *theMovieURL = [NSURL URLWithString:@"http://vhotwsh.video.qq.com/flv/32/146/r0015d10iwu.p203.1.mp4?vkey=68023055CEC9CC9E1D988B0E71E4B58C38B0374F1CB9805F4A1901D8E87B42137DD9680CF88D3685C3A59F030BAE55AA2E7238551DCB6BFF&fmt=sd&type=mp4"];
 
     [IJKFFMoviePlayerController setLogReport:YES];
-#if 1 //mabiao
+#if 0 //mabiao
+    IJKFFOptions *options = [[IJKFFOptions alloc] init];
+    options.skipLoopFilter  = IJK_AVDISCARD_ALL;
+    options.skipFrame       = IJK_AVDISCARD_NONREF;
+//
+    options.frameBufferCount        = 3;
+    options.maxFps                  = 30;
+    options.frameDrop               = 0;
+    options.pauseInBackground       = YES;
+    
+    options.timeout                 = 30 * 1000 * 1000; // 30 seconds
+    options.userAgent               = @"";
+    options.videotoolboxEnabled     = YES;
+    options.frameMaxWidth           = 960;
+    options.autoReconnect           = YES;
+    
     self.player = [[IJKFFMoviePlayerController alloc] initWithContentURL:theMovieURL withOptions:[IJKFFOptions optionsByDefault]];
+    //self.player = [[IJKFFMoviePlayerController alloc] initWithContentURL:theMovieURL withOptions:options];
 #else
     self.player = [[IJKFFMoviePlayerController alloc] initWithContentURL:theMovieURL withOptions:nil];
 #endif
